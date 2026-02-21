@@ -7,6 +7,12 @@ const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
 
+const isProduction = process.env.NODE_ENV === 'production';
+if (isProduction && !process.env.SESSION_SECRET) {
+  console.error('Fatal: SESSION_SECRET must be set in production.');
+  process.exit(1);
+}
+
 const app = express();
 const PORT = process.env.PORT || 4000;
 

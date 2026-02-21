@@ -45,3 +45,15 @@ CREATE TABLE IF NOT EXISTS graduations (
   graduated_at TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE(user_id, level)
 );
+
+-- One-time tokens: set-password (from email link) and reset-password (forgot password)
+CREATE TABLE IF NOT EXISTS password_tokens (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  token_hash VARCHAR(64) NOT NULL,
+  type VARCHAR(20) NOT NULL CHECK (type IN ('set_password', 'reset_password')),
+  expires_at TIMESTAMPTZ NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_password_tokens_user_type ON password_tokens (user_id, type);
+CREATE INDEX IF NOT EXISTS idx_password_tokens_expires ON password_tokens (expires_at);
