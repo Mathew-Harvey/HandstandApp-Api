@@ -69,7 +69,7 @@ module.exports = function (pool) {
     }
     try {
       const result = await pool.query(
-        'SELECT id, email, display_name, current_level, created_at FROM users WHERE id=$1',
+        'SELECT id, email, display_name, current_level, theme, created_at FROM users WHERE id=$1',
         [req.session.userId]
       );
       if (!result.rows.length) return res.json({ authenticated: false });
@@ -174,8 +174,8 @@ module.exports = function (pool) {
       }
       const hash = await bcrypt.hash(password, 12);
       const result = await pool.query(
-        'INSERT INTO users (email, password_hash, display_name) VALUES ($1,$2,$3) RETURNING id, email, display_name, current_level',
-        [email.toLowerCase(), hash, display_name.trim()]
+        'INSERT INTO users (email, password_hash, display_name, theme) VALUES ($1,$2,$3,$4) RETURNING id, email, display_name, current_level, theme',
+        [email.toLowerCase(), hash, display_name.trim(), 'dark']
       );
       const user = result.rows[0];
       req.session.userId = user.id;
@@ -206,7 +206,7 @@ module.exports = function (pool) {
       req.session.userId = user.id;
       req.session.displayName = user.display_name;
       res.json({
-        user: { id: user.id, email: user.email, display_name: user.display_name, current_level: user.current_level }
+        user: { id: user.id, email: user.email, display_name: user.display_name, current_level: user.current_level, theme: user.theme }
       });
     } catch (err) {
       console.error('Login error:', err);
@@ -360,6 +360,96 @@ module.exports = function (pool) {
     } catch (err) {
       console.error('Reset-password error:', err);
       res.status(500).json({ error: 'Something went wrong.' });
+    }
+  });
+
+  // Change password
+  router.post('/auth/change-password', requireAuth, async (req, res) => {
+    const { current_password, new_password, confirm_password } = req.body;
+    if (!current_password || !new_password || !confirm_password) {
+      return res.status(400).json({ error: 'All fields are required.' });
+    }
+    if (new_password.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters.' });
+    }
+    if (new_password !== confirm_password) {
+      return res.status(400).json({ error: 'New passwords do not match.' });
+    }
+    try {
+      const result = await pool.query('SELECT password_hash FROM users WHERE id=$1', [req.session.userId]);
+      if (!result.rows.length) {
+        return res.status(404).json({ error: 'User not found.' });
+      }
+      const valid = await bcrypt.compare(current_password, result.rows[0].password_hash);
+      if (!valid) {
+        return res.status(401).json({ error: 'Current password is incorrect.' });
+      }
+      const hash = await bcrypt.hash(new_password, 12);
+      await pool.query('UPDATE users SET password_hash=$1, updated_at=NOW() WHERE id=$2', [hash, req.session.userId]);
+      res.json({ ok: true });
+    } catch (err) {
+      console.error('Change password error:', err);
+      res.status(500).json({ error: 'Failed to change password.' });
+    }
+  });
+
+  // Update settings (theme, display_name)
+  router.put('/auth/settings', requireAuth, async (req, res) => {
+    const { theme, display_name } = req.body;
+    try {
+      const updates = [];
+      const values = [];
+      let paramNum = 1;
+      if (theme && ['light', 'dark'].includes(theme)) {
+        updates.push(`theme=$${paramNum++}`);
+        values.push(theme);
+      }
+      if (display_name && display_name.trim()) {
+        updates.push(`display_name=$${paramNum++}`);
+        values.push(display_name.trim());
+      }
+      if (updates.length === 0) {
+        return res.status(400).json({ error: 'No valid fields to update.' });
+      }
+      values.push(req.session.userId);
+      const result = await pool.query(
+        `UPDATE users SET ${updates.join(', ')}, updated_at=NOW() WHERE id=$${paramNum} RETURNING id, email, display_name, current_level, theme`,
+        values
+      );
+      res.json({ user: result.rows[0] });
+    } catch (err) {
+      console.error('Settings update error:', err);
+      res.status(500).json({ error: 'Failed to update settings.' });
+    }
+  });
+
+  // Reset all progress
+  router.post('/auth/reset-progress', requireAuth, async (req, res) => {
+    try {
+      await pool.query('DELETE FROM progress_logs WHERE user_id=$1', [req.session.userId]);
+      await pool.query('DELETE FROM graduations WHERE user_id=$1', [req.session.userId]);
+      await pool.query('UPDATE users SET current_level=1, updated_at=NOW() WHERE id=$1', [req.session.userId]);
+      res.json({ ok: true });
+    } catch (err) {
+      console.error('Reset progress error:', err);
+      res.status(500).json({ error: 'Failed to reset progress.' });
+    }
+  });
+
+  // Unlock all levels
+  router.post('/auth/unlock-all', requireAuth, async (req, res) => {
+    try {
+      for (let level = 1; level <= 6; level++) {
+        await pool.query(
+          'INSERT INTO graduations (user_id, level) VALUES ($1,$2) ON CONFLICT (user_id, level) DO NOTHING',
+          [req.session.userId, level]
+        );
+      }
+      await pool.query('UPDATE users SET current_level=6, updated_at=NOW() WHERE id=$1', [req.session.userId]);
+      res.json({ ok: true });
+    } catch (err) {
+      console.error('Unlock all error:', err);
+      res.status(500).json({ error: 'Failed to unlock levels.' });
     }
   });
 

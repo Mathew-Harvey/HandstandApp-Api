@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS users (
   password_hash VARCHAR(255) NOT NULL,
   display_name VARCHAR(100) NOT NULL,
   current_level INTEGER DEFAULT 1 CHECK (current_level BETWEEN 1 AND 6),
+  theme VARCHAR(20) DEFAULT 'dark' CHECK (theme IN ('light', 'dark')),
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
