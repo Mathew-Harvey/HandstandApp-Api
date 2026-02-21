@@ -22,7 +22,7 @@ const pool = new Pool({
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
 });
 
-// Auto-init schema
+// Auto-init schema + migrations
 (async () => {
   try {
     const schema = fs.readFileSync(path.join(__dirname, 'db', 'schema.sql'), 'utf8');
@@ -30,6 +30,21 @@ const pool = new Pool({
     console.log('Database schema ready');
   } catch (err) {
     console.error('Schema init warning:', err.message);
+  }
+  
+  // Run migrations for existing tables
+  try {
+    // Add theme column if it doesn't exist
+    await pool.query(`
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS theme VARCHAR(20) DEFAULT 'dark' CHECK (theme IN ('light', 'dark'));
+    `);
+    console.log('Migration: theme column added');
+  } catch (err) {
+    if (err.message.includes('already exists')) {
+      console.log('Migration: theme column already exists');
+    } else {
+      console.error('Migration warning:', err.message);
+    }
   }
 })();
 
