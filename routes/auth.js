@@ -301,17 +301,20 @@ module.exports = function (pool) {
       const setPasswordUrl = baseUrl ? `${baseUrl.replace(/\/$/, '')}/set-password?token=${token}` : null;
 
       if (canSendEmail) {
-        try {
-          const { Resend } = require('resend');
-          const resend = new Resend(process.env.RESEND_API_KEY);
-          await resend.emails.send({
-            from: process.env.RESEND_FROM,
-            to: emailNorm,
-            subject: 'Reset your Handstand Tracker password',
-            html: `Use this link to set a new password (valid for ${RESET_PASSWORD_EXPIRY_HOURS} hour(s)): <a href="${setPasswordUrl}">${setPasswordUrl}</a>`,
-          });
-        } catch (emailErr) {
-          console.error('Forgot-password email error:', emailErr);
+        const { Resend } = require('resend');
+        const resend = new Resend(process.env.RESEND_API_KEY);
+        const { data, error } = await resend.emails.send({
+          from: process.env.RESEND_FROM,
+          to: [emailNorm],
+          subject: 'Reset your Handstand Tracker password',
+          html: `Use this link to set a new password (valid for ${RESET_PASSWORD_EXPIRY_HOURS} hour(s)): <a href="${setPasswordUrl}">${setPasswordUrl}</a>`,
+        });
+        if (error) {
+          console.error('Forgot-password email failed:', error.message || error);
+          // In development, return devResetToken so user can still reset
+          if (process.env.NODE_ENV !== 'production') {
+            return res.json({ ok: true, devResetToken: token });
+          }
         }
       }
 

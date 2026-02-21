@@ -33,6 +33,17 @@ const pool = new Pool({
   }
 })();
 
+// Log when forgot-password email cannot be sent (so deployers know to set env vars)
+(function checkForgotPasswordEmailConfig() {
+  const hasResend = !!(process.env.RESEND_API_KEY && process.env.RESEND_FROM);
+  const hasBaseUrl = !!(process.env.TRACKER_APP_URL || process.env.TRACKER_LOGIN_URL);
+  if (!hasResend || !hasBaseUrl) {
+    console.warn(
+      'Forgot-password emails will NOT be sent: set RESEND_API_KEY, RESEND_FROM, and TRACKER_APP_URL (or TRACKER_LOGIN_URL) in the environment.'
+    );
+  }
+})();
+
 // CORS — allow the web frontend
 const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || 'http://localhost:3000').split(',');
 app.set('trust proxy', 1);

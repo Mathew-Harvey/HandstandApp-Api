@@ -64,7 +64,12 @@ Before going live:
 - [ ] `DATABASE_URL` points to production PostgreSQL
 - [ ] `ALLOWED_ORIGINS` includes tracker app (and landing page origin if it calls API from browser)
 - [ ] `TRACKER_APP_URL` set so forgot-password and landing page emails use the correct set-password link base
-- [ ] Optional: `RESEND_API_KEY`, `RESEND_FROM` for forgot-password emails
+- [ ] **Forgot-password emails:** `RESEND_API_KEY`, `RESEND_FROM`, and `TRACKER_APP_URL` must be set on the API server; otherwise reset tokens are created but no email is sent. The API logs a warning at startup if these are missing.
+
+**Developer prompts (share with the other repos):**
+
+- **Landing page repo:** `docs/PROMPT-LANDING-PAGE-DEV.md` — config and how to call create-user and send the set-password email.
+- **Web app frontend:** `docs/PROMPT-WEB-APP-FRONTEND-DEV.md` — forgot-password and set-password UI, and why reset email might not be sent (API env vars).
 
 Landing page config:
 
