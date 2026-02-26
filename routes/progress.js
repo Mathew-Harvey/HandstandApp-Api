@@ -3,6 +3,13 @@ const { requireAuth } = require('../middleware/auth');
 const LEVELS = require('../data/levels');
 const router = express.Router();
 
+const EXERCISE_NAMES = {};
+for (const level of LEVELS) {
+  for (const ex of level.exercises) {
+    EXERCISE_NAMES[ex.key] = ex.name;
+  }
+}
+
 module.exports = function (pool) {
   // Serve level definitions to the frontend
   router.get('/levels', (req, res) => res.json(LEVELS));
@@ -35,6 +42,137 @@ module.exports = function (pool) {
       res.json({ user, graduations, recentLogs, totalSessions: parseInt(totalSessions), streak });
     } catch (err) {
       console.error('Dashboard error:', err);
+      res.status(500).json({ error: 'Server error' });
+    }
+  });
+
+  // Rich stats for the progress dashboard
+  router.get('/dashboard/stats', requireAuth, async (req, res) => {
+    const uid = req.session.userId;
+    try {
+      const [
+        heatmapResult,
+        weeklyResult,
+        pbResult,
+        timelineResult,
+        breakdownResult,
+        totalsResult,
+        longestStreakResult,
+        userResult,
+      ] = await Promise.all([
+        // 1. Heatmap — daily log counts for last 365 days
+        pool.query(
+          `SELECT session_date::text AS date, COUNT(*)::int AS count
+           FROM progress_logs
+           WHERE user_id = $1 AND session_date >= CURRENT_DATE - INTERVAL '365 days'
+           GROUP BY session_date ORDER BY session_date`,
+          [uid]
+        ),
+        // 2. Weekly volume — last 12 weeks
+        pool.query(
+          `SELECT to_char(session_date, 'IYYY-"W"IW') AS week,
+                  COUNT(DISTINCT session_date)::int AS sessions,
+                  COALESCE(SUM(sets_completed), 0)::int AS sets
+           FROM progress_logs
+           WHERE user_id = $1 AND session_date >= CURRENT_DATE - INTERVAL '12 weeks'
+           GROUP BY week ORDER BY week`,
+          [uid]
+        ),
+        // 3. Personal bests — best hold time per exercise
+        pool.query(
+          `WITH maxes AS (
+             SELECT exercise_key,
+                    MAX(hold_time_seconds)::int AS best_hold_seconds,
+                    MAX(sets_completed)::int AS best_sets
+             FROM progress_logs WHERE user_id = $1 GROUP BY exercise_key
+           )
+           SELECT m.exercise_key, m.best_hold_seconds, m.best_sets,
+             (SELECT session_date::text FROM progress_logs
+              WHERE user_id = $1 AND exercise_key = m.exercise_key
+              ORDER BY hold_time_seconds DESC NULLS LAST, sets_completed DESC, session_date DESC
+              LIMIT 1) AS achieved_at
+           FROM maxes m
+           ORDER BY m.best_hold_seconds DESC NULLS LAST`,
+          [uid]
+        ),
+        // 4. Level timeline — first log date per level + graduation date
+        pool.query(
+          `SELECT p.level,
+                  MIN(p.session_date)::text AS started_at,
+                  g.graduated_at
+           FROM progress_logs p
+           LEFT JOIN graduations g ON g.user_id = p.user_id AND g.level = p.level
+           WHERE p.user_id = $1
+           GROUP BY p.level, g.graduated_at
+           ORDER BY p.level`,
+          [uid]
+        ),
+        // 5. Exercise breakdown — most practiced exercises
+        pool.query(
+          `SELECT exercise_key, COUNT(*)::int AS total_logs
+           FROM progress_logs WHERE user_id = $1
+           GROUP BY exercise_key ORDER BY total_logs DESC LIMIT 10`,
+          [uid]
+        ),
+        // 6. Totals
+        pool.query(
+          `SELECT COUNT(DISTINCT session_date)::int AS total_sessions,
+                  COALESCE(SUM(sets_completed), 0)::int AS total_sets,
+                  COUNT(*)::int AS total_logs
+           FROM progress_logs WHERE user_id = $1`,
+          [uid]
+        ),
+        // 7. Longest streak (consecutive-day islands)
+        pool.query(
+          `WITH dates AS (
+             SELECT DISTINCT session_date FROM progress_logs
+             WHERE user_id = $1 ORDER BY session_date
+           ),
+           grouped AS (
+             SELECT session_date,
+                    session_date - (ROW_NUMBER() OVER (ORDER BY session_date))::int AS grp
+             FROM dates
+           )
+           SELECT COALESCE(MAX(cnt), 0)::int AS longest
+           FROM (SELECT COUNT(*)::int AS cnt FROM grouped GROUP BY grp) sub`,
+          [uid]
+        ),
+        // User created_at for memberSinceDays
+        pool.query(
+          'SELECT created_at FROM users WHERE id = $1',
+          [uid]
+        ),
+      ]);
+
+      const totalsRow = totalsResult.rows[0] || { total_sessions: 0, total_sets: 0, total_logs: 0 };
+      const memberSinceDays = userResult.rows[0]
+        ? Math.floor((Date.now() - new Date(userResult.rows[0].created_at).getTime()) / 86400000)
+        : 0;
+
+      const currentStreak = await getStreak(pool, uid);
+
+      res.json({
+        heatmap: heatmapResult.rows,
+        weeklyVolume: weeklyResult.rows,
+        personalBests: pbResult.rows,
+        levelTimeline: timelineResult.rows,
+        exerciseBreakdown: breakdownResult.rows.map(r => ({
+          ...r,
+          name: EXERCISE_NAMES[r.exercise_key] || r.exercise_key,
+        })),
+        totals: {
+          totalSessions: totalsRow.total_sessions,
+          totalSets: totalsRow.total_sets,
+          totalLogs: totalsRow.total_logs,
+          memberSinceDays,
+        },
+        streak: {
+          current: currentStreak,
+          longest: longestStreakResult.rows[0]?.longest || 0,
+        },
+      });
+    } catch (err) {
+      console.error('Dashboard stats error:', err);
       res.status(500).json({ error: 'Server error' });
     }
   });
