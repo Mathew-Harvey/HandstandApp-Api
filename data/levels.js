@@ -2,8 +2,8 @@ const LEVELS = [
   {
     num: 1, title: 'Building the Foundation', subtitle: 'Wrist strength, shoulder mobility, and core stability',
     exercises: [
-      { key: 'wrist_heel_raises', name: 'Wrist Heel Raises', rx: '10 reps, hold last rep 10 sec', video: 'https://www.youtube.com/watch?v=Uo4qAzodPlM&t=14s', hasTimer: true },
-      { key: 'fin_pushups', name: 'Fin Push-ups', rx: '10 reps, hold last rep 10 sec · 3–5 supersets', video: 'https://www.youtube.com/watch?v=Uo4qAzodPlM&t=14s', hasTimer: true },
+      { key: 'wrist_heel_raises', name: 'Wrist Heel Raises', rx: '10 reps, hold last rep 10 sec', video: 'https://www.youtube.com/watch?v=Uo4qAzodPlM&t=2m25s', hasTimer: true },
+      { key: 'fin_pushups', name: 'Fin Push-ups', rx: '10 reps, hold last rep 10 sec · 3–5 supersets', video: 'https://www.youtube.com/watch?v=Uo4qAzodPlM&t=2m47s', hasTimer: true },
       { key: 'desk_stretch_ext', name: 'Desk Stretch — External Rotation', rx: '10 pulses, then hold 1–2 min', video: 'https://www.youtube.com/watch?v=Toe5JOHztek', hasTimer: true },
       { key: 'overhead_desk', name: 'Overhead Desk Stretch', rx: '10 pulses, then hold 1–2 min', video: 'https://www.youtube.com/watch?v=G4wqA_e9r3I', hasTimer: true },
       { key: 'hang', name: 'Hang', rx: 'Accumulate 1 min (build to unbroken) · 3–5 sets', hasTimer: true },
