@@ -72,7 +72,8 @@ module.exports = function (pool) {
         pool.query(
           `SELECT to_char(session_date, 'IYYY-"W"IW') AS week,
                   COUNT(DISTINCT session_date)::int AS sessions,
-                  COALESCE(SUM(sets_completed), 0)::int AS sets
+                  COALESCE(SUM(sets_completed), 0)::int AS sets,
+                  date_trunc('week', MIN(session_date))::date::text AS week_start
            FROM progress_logs
            WHERE user_id = $1 AND session_date >= CURRENT_DATE - INTERVAL '12 weeks'
            GROUP BY week ORDER BY week`,
