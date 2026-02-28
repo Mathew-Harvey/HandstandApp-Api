@@ -25,14 +25,14 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Statements</span>
-                <span class='fraction'>0/270</span>
+                <span class='fraction'>0/277</span>
             </div>
         
             
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Branches</span>
-                <span class='fraction'>0/148</span>
+                <span class='fraction'>0/156</span>
             </div>
         
             
@@ -46,7 +46,7 @@
             <div class='fl pad1y space-right2'>
                 <span class="strong">0% </span>
                 <span class="quiet">Lines</span>
-                <span class='fraction'>0/254</span>
+                <span class='fraction'>0/261</span>
             </div>
         
             
@@ -529,7 +529,17 @@
 <a name='L464'></a><a href='#L464'>464</a>
 <a name='L465'></a><a href='#L465'>465</a>
 <a name='L466'></a><a href='#L466'>466</a>
-<a name='L467'></a><a href='#L467'>467</a></td><td class="line-coverage quiet"><span class="cline-any cline-no">&nbsp;</span>
+<a name='L467'></a><a href='#L467'>467</a>
+<a name='L468'></a><a href='#L468'>468</a>
+<a name='L469'></a><a href='#L469'>469</a>
+<a name='L470'></a><a href='#L470'>470</a>
+<a name='L471'></a><a href='#L471'>471</a>
+<a name='L472'></a><a href='#L472'>472</a>
+<a name='L473'></a><a href='#L473'>473</a>
+<a name='L474'></a><a href='#L474'>474</a>
+<a name='L475'></a><a href='#L475'>475</a>
+<a name='L476'></a><a href='#L476'>476</a>
+<a name='L477'></a><a href='#L477'>477</a></td><td class="line-coverage quiet"><span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -594,9 +604,13 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -763,6 +777,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -785,6 +800,10 @@
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
@@ -798,6 +817,7 @@
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
 <span class="cline-any cline-neutral">&nbsp;</span>
+<span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
 <span class="cline-any cline-no">&nbsp;</span>
@@ -1059,9 +1079,13 @@ const loginLimiter = <span class="cstat-no" title="statement not covered" >rateL
 });
 &nbsp;
 <span class="cstat-no" title="statement not covered" >module.exports = <span class="fstat-no" title="function not covered" >fu</span>nction (pool) {</span>
-  // Check auth status
+  // Check auth status. Do not return authenticated: true when the session is from
+  // a set-password token validation only (user has not yet completed setting password).
 <span class="cstat-no" title="statement not covered" >  router.get('/auth/me', <span class="fstat-no" title="function not covered" >as</span>ync (req, res) =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >    if (!req.session || !req.session.userId) {</span>
+<span class="cstat-no" title="statement not covered" >      return res.json({ authenticated: false });</span>
+    }
+<span class="cstat-no" title="statement not covered" >    if (req.session.pendingPasswordSet) {</span>
 <span class="cstat-no" title="statement not covered" >      return res.json({ authenticated: false });</span>
     }
 <span class="cstat-no" title="statement not covered" >    try {</span>
@@ -1149,8 +1173,8 @@ const loginLimiter = <span class="cstat-no" title="statement not covered" >rateL
   // POST /api/auth/create-user — alternate path (same contract).
 <span class="cstat-no" title="statement not covered" >  router.post('/auth/create-user', sensitiveLimiter, requireTrackerApiSecret, createUserHandler);</span>
 &nbsp;
-  // Register
-<span class="cstat-no" title="statement not covered" >  router.post('/auth/register', <span class="fstat-no" title="function not covered" >as</span>ync (req, res) =&gt; {</span>
+  // Register (rate limited to prevent abuse)
+<span class="cstat-no" title="statement not covered" >  router.post('/auth/register', sensitiveLimiter, <span class="fstat-no" title="function not covered" >as</span>ync (req, res) =&gt; {</span>
     const { email, password, confirm_password, display_name } = <span class="cstat-no" title="statement not covered" >req.body;</span>
 <span class="cstat-no" title="statement not covered" >    if (!email || !password || !confirm_password || !display_name) {</span>
 <span class="cstat-no" title="statement not covered" >      return res.status(400).json({ error: 'All fields are required.' });</span>
@@ -1234,6 +1258,7 @@ const loginLimiter = <span class="cstat-no" title="statement not covered" >rateL
       const user = <span class="cstat-no" title="statement not covered" >{ id: row.id, email: row.email, display_name: row.display_name, current_level: row.current_level };</span>
 <span class="cstat-no" title="statement not covered" >      req.session.userId = user.id;</span>
 <span class="cstat-no" title="statement not covered" >      req.session.displayName = user.display_name;</span>
+<span class="cstat-no" title="statement not covered" >      req.session.pendingPasswordSet = true; </span>// So /auth/me returns authenticated: false until they complete set-password
 <span class="cstat-no" title="statement not covered" >      res.json({ user });</span>
     } catch (err) {
 <span class="cstat-no" title="statement not covered" >      console.error('Validate set-password token error:', err);</span>
@@ -1241,14 +1266,18 @@ const loginLimiter = <span class="cstat-no" title="statement not covered" >rateL
     }
   });
 &nbsp;
-  // Set password using one-time token. Body: { token, newPassword }. Hashes password, updates user, clears token. Returns { user }.
+  // Set password using one-time token. Body: { token, newPassword [, confirm_password] }. Hashes password, updates user, clears token. Returns { user }.
   // Accepts both set_password and reset_password tokens (same /set-password link for create-user and forgot-password).
 <span class="cstat-no" title="statement not covered" >  router.post('/auth/set-password', sensitiveLimiter, <span class="fstat-no" title="function not covered" >as</span>ync (req, res) =&gt; {</span>
-    const { token, newPassword, password } = <span class="cstat-no" title="statement not covered" >req.body;</span>
+    const { token, newPassword, password, confirm_password, confirmNewPassword } = <span class="cstat-no" title="statement not covered" >req.body;</span>
     const pwd = <span class="cstat-no" title="statement not covered" >newPassword ?? password;</span>
+    const confirm = <span class="cstat-no" title="statement not covered" >confirm_password ?? confirmNewPassword;</span>
 <span class="cstat-no" title="statement not covered" >    if (!token) <span class="cstat-no" title="statement not covered" >return res.status(400).json({ error: 'Token required' });</span></span>
 <span class="cstat-no" title="statement not covered" >    if (!pwd) <span class="cstat-no" title="statement not covered" >return res.status(400).json({ error: 'newPassword is required.' });</span></span>
 <span class="cstat-no" title="statement not covered" >    if (pwd.length &lt; 6) <span class="cstat-no" title="statement not covered" >return res.status(400).json({ error: 'Password must be at least 6 characters.' });</span></span>
+<span class="cstat-no" title="statement not covered" >    if (confirm !== undefined &amp;&amp; pwd !== confirm) {</span>
+<span class="cstat-no" title="statement not covered" >      return res.status(400).json({ error: 'Passwords do not match.' });</span>
+    }
 <span class="cstat-no" title="statement not covered" >    try {</span>
       const r = <span class="cstat-no" title="statement not covered" >await pool.query(</span>
         `SELECT user_id, type FROM password_tokens
@@ -1267,6 +1296,7 @@ const loginLimiter = <span class="cstat-no" title="statement not covered" >rateL
       const user = <span class="cstat-no" title="statement not covered" >userResult.rows[0];</span>
 <span class="cstat-no" title="statement not covered" >      req.session.userId = user.id;</span>
 <span class="cstat-no" title="statement not covered" >      req.session.displayName = user.display_name;</span>
+<span class="cstat-no" title="statement not covered" >      delete req.session.pendingPasswordSet; </span>// User has completed set-password; now fully authenticated
 <span class="cstat-no" title="statement not covered" >      res.json({ user });</span>
     } catch (err) {
 <span class="cstat-no" title="statement not covered" >      console.error('Set-password error:', err);</span>
@@ -1451,7 +1481,7 @@ const loginLimiter = <span class="cstat-no" title="statement not covered" >rateL
   });
 &nbsp;
   // Verify session for ebook access - returns ok if user is authenticated
-<span class="cstat-no" title="statement not covered" >  router.get('/api/verify-session', <span class="fstat-no" title="function not covered" >(r</span>eq, res) =&gt; {</span>
+<span class="cstat-no" title="statement not covered" >  router.get('/auth/verify-session', <span class="fstat-no" title="function not covered" >(r</span>eq, res) =&gt; {</span>
 <span class="cstat-no" title="statement not covered" >    if (req.session &amp;&amp; req.session.userId) {</span>
 <span class="cstat-no" title="statement not covered" >      res.json({ verified: true, userId: req.session.userId });</span>
     } else {
@@ -1468,7 +1498,7 @@ const loginLimiter = <span class="cstat-no" title="statement not covered" >rateL
             <div class='footer quiet pad2 space-top1 center small'>
                 Code coverage generated by
                 <a href="https://istanbul.js.org/" target="_blank" rel="noopener noreferrer">istanbul</a>
-                at 2026-02-28T10:43:50.765Z
+                at 2026-02-28T11:05:34.611Z
             </div>
         <script src="../../prettify.js"></script>
         <script>

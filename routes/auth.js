@@ -62,9 +62,13 @@ const loginLimiter = rateLimit({
 });
 
 module.exports = function (pool) {
-  // Check auth status
+  // Check auth status. Do not return authenticated: true when the session is from
+  // a set-password token validation only (user has not yet completed setting password).
   router.get('/auth/me', async (req, res) => {
     if (!req.session || !req.session.userId) {
+      return res.json({ authenticated: false });
+    }
+    if (req.session.pendingPasswordSet) {
       return res.json({ authenticated: false });
     }
     try {
@@ -152,8 +156,8 @@ module.exports = function (pool) {
   // POST /api/auth/create-user — alternate path (same contract).
   router.post('/auth/create-user', sensitiveLimiter, requireTrackerApiSecret, createUserHandler);
 
-  // Register
-  router.post('/auth/register', async (req, res) => {
+  // Register (rate limited to prevent abuse)
+  router.post('/auth/register', sensitiveLimiter, async (req, res) => {
     const { email, password, confirm_password, display_name } = req.body;
     if (!email || !password || !confirm_password || !display_name) {
       return res.status(400).json({ error: 'All fields are required.' });
@@ -237,6 +241,7 @@ module.exports = function (pool) {
       const user = { id: row.id, email: row.email, display_name: row.display_name, current_level: row.current_level };
       req.session.userId = user.id;
       req.session.displayName = user.display_name;
+      req.session.pendingPasswordSet = true; // So /auth/me returns authenticated: false until they complete set-password
       res.json({ user });
     } catch (err) {
       console.error('Validate set-password token error:', err);
@@ -244,14 +249,18 @@ module.exports = function (pool) {
     }
   });
 
-  // Set password using one-time token. Body: { token, newPassword }. Hashes password, updates user, clears token. Returns { user }.
+  // Set password using one-time token. Body: { token, newPassword [, confirm_password] }. Hashes password, updates user, clears token. Returns { user }.
   // Accepts both set_password and reset_password tokens (same /set-password link for create-user and forgot-password).
   router.post('/auth/set-password', sensitiveLimiter, async (req, res) => {
-    const { token, newPassword, password } = req.body;
+    const { token, newPassword, password, confirm_password, confirmNewPassword } = req.body;
     const pwd = newPassword ?? password;
+    const confirm = confirm_password ?? confirmNewPassword;
     if (!token) return res.status(400).json({ error: 'Token required' });
     if (!pwd) return res.status(400).json({ error: 'newPassword is required.' });
     if (pwd.length < 6) return res.status(400).json({ error: 'Password must be at least 6 characters.' });
+    if (confirm !== undefined && pwd !== confirm) {
+      return res.status(400).json({ error: 'Passwords do not match.' });
+    }
     try {
       const r = await pool.query(
         `SELECT user_id, type FROM password_tokens
@@ -270,6 +279,7 @@ module.exports = function (pool) {
       const user = userResult.rows[0];
       req.session.userId = user.id;
       req.session.displayName = user.display_name;
+      delete req.session.pendingPasswordSet; // User has completed set-password; now fully authenticated
       res.json({ user });
     } catch (err) {
       console.error('Set-password error:', err);
@@ -454,7 +464,7 @@ module.exports = function (pool) {
   });
 
   // Verify session for ebook access - returns ok if user is authenticated
-  router.get('/api/verify-session', (req, res) => {
+  router.get('/auth/verify-session', (req, res) => {
     if (req.session && req.session.userId) {
       res.json({ verified: true, userId: req.session.userId });
     } else {
