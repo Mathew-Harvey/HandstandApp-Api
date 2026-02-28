@@ -14,7 +14,7 @@ if (isProduction && !process.env.SESSION_SECRET) {
 }
 
 const app = express();
-const PORT = process.env.PORT || 4000;
+const PORT = process.env.PORT || 4001;
 
 // Database
 const pool = new Pool({
