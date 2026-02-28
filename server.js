@@ -14,9 +14,10 @@ if (isProduction && !process.env.SESSION_SECRET) {
 }
 
 const app = express();
-const PORT = process.env.PORT || 4001;
+const PORT = process.env.PORT || 4000;
 
-// Database
+// Database. In production, Render managed Postgres often requires rejectUnauthorized: false
+// unless you provide a CA cert. Prefer rejectUnauthorized: true with PGSSLROOTCERT when possible.
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
@@ -75,7 +76,8 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Sessions
+// Sessions. Production uses sameSite: 'none' for cross-origin frontend; consider CSRF
+// (e.g. double-submit cookie or csurf) if the app is used from arbitrary origins.
 app.use(session({
   store: new pgSession({ pool, tableName: 'session', createTableIfMissing: true }),
   secret: process.env.SESSION_SECRET || 'handstand-dev-secret-change-me',

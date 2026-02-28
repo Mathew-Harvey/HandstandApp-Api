@@ -10,7 +10,8 @@ REST API for the Handstand Training Progress Tracker.
 | POST | `/api/auth/register` | No | Create account |
 | POST | `/api/auth/login` | No | Log in |
 | POST | `/api/auth/logout` | Yes | Log out |
-| GET | `/api/auth/verify-session` | No | Check if session is valid (e.g. for ebook) |
+| GET | `/api/verify-session` | No | Check if session is valid (e.g. for ebook) |
+| GET | `/api/ebook-token` | Yes | Get session_id for ebook/iframe verification |
 | GET | `/api/levels` | No | Get all level definitions |
 | GET | `/api/dashboard` | Yes | Dashboard data (user, stats, logs) |
 | GET | `/api/levels/:num/logs` | Yes | Logs for a specific level |

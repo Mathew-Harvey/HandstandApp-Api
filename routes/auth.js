@@ -37,13 +37,21 @@ function requireTrackerApiSecret(req, res, next) {
   const apiKey = req.headers['x-api-key'];
   const bearer = authHeader && authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
   const provided = bearer || apiKey;
-  if (!provided || provided !== secret) {
+  if (!provided) {
+    return res.status(401).json({ error: 'Missing or invalid API secret.' });
+  }
+  // Timing-safe comparison to prevent brute-force of TRACKER_API_SECRET by response time
+  const secretBuf = Buffer.from(secret, 'utf8');
+  const providedBuf = Buffer.from(provided, 'utf8');
+  if (secretBuf.length !== providedBuf.length || !crypto.timingSafeEqual(secretBuf, providedBuf)) {
     return res.status(401).json({ error: 'Missing or invalid API secret.' });
   }
   next();
 }
 
-// Rate limit for create-user and forgot-password (per IP)
+// Rate limit for create-user, forgot-password, set-password, register (per IP).
+// Default store is in-memory — per process. If you scale to multiple instances, use a shared
+// store (e.g. rate-limit-redis) so limits apply across instances.
 const sensitiveLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 30, // 30 requests per window per IP
@@ -182,23 +190,32 @@ module.exports = function (pool) {
         [email.toLowerCase(), hash, display_name.trim(), 'dark']
       );
       const user = result.rows[0];
-      req.session.userId = user.id;
-      req.session.displayName = user.display_name;
-      res.status(201).json({ user });
+      req.session.regenerate((err) => {
+        if (err) {
+          console.error('Session regenerate error:', err);
+          return res.status(500).json({ error: 'Something went wrong.' });
+        }
+        req.session.userId = user.id;
+        req.session.displayName = user.display_name;
+        res.status(201).json({ user });
+      });
     } catch (err) {
       console.error('Register error:', err);
       res.status(500).json({ error: 'Something went wrong.' });
     }
   });
 
-  // Login
+  // Login (regenerate session to prevent session fixation)
   router.post('/auth/login', loginLimiter, async (req, res) => {
     const { email, password } = req.body;
     if (!email || !password) {
       return res.status(400).json({ error: 'Email and password are required.' });
     }
     try {
-      const result = await pool.query('SELECT * FROM users WHERE email=$1', [email.toLowerCase()]);
+      const result = await pool.query(
+        'SELECT id, email, password_hash, display_name, current_level, theme FROM users WHERE email=$1',
+        [email.toLowerCase()]
+      );
       if (!result.rows.length) {
         return res.status(401).json({ error: 'Invalid email or password.' });
       }
@@ -207,10 +224,16 @@ module.exports = function (pool) {
       if (!valid) {
         return res.status(401).json({ error: 'Invalid email or password.' });
       }
-      req.session.userId = user.id;
-      req.session.displayName = user.display_name;
-      res.json({
-        user: { id: user.id, email: user.email, display_name: user.display_name, current_level: user.current_level, theme: user.theme }
+      req.session.regenerate((err) => {
+        if (err) {
+          console.error('Session regenerate error:', err);
+          return res.status(500).json({ error: 'Server error' });
+        }
+        req.session.userId = user.id;
+        req.session.displayName = user.display_name;
+        res.json({
+          user: { id: user.id, email: user.email, display_name: user.display_name, current_level: user.current_level, theme: user.theme }
+        });
       });
     } catch (err) {
       console.error('Login error:', err);
@@ -463,13 +486,18 @@ module.exports = function (pool) {
     }
   });
 
-  // Verify session for ebook access - returns ok if user is authenticated
-  router.get('/auth/verify-session', (req, res) => {
-    if (req.session && req.session.userId) {
+  // Verify session for ebook access — path is /api/verify-session (router is mounted at /api)
+  router.get('/verify-session', (req, res) => {
+    if (req.session && req.session.userId && !req.session.pendingPasswordSet) {
       res.json({ verified: true, userId: req.session.userId });
     } else {
       res.status(401).json({ verified: false, error: 'Not authenticated' });
     }
+  });
+
+  // Ebook token: returns session_id for ebook to verify the user is logged in (e.g. iframe / embedded content)
+  router.get('/ebook-token', requireAuth, (req, res) => {
+    res.json({ session_id: req.sessionID });
   });
 
   return router;
