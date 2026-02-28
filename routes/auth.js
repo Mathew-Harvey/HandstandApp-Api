@@ -241,8 +241,8 @@ module.exports = function (pool) {
     }
   });
 
-  // Logout
-  router.post('/auth/logout', (req, res) => {
+  // Logout (requireAuth for consistency with other protected auth routes)
+  router.post('/auth/logout', requireAuth, (req, res) => {
     req.session.destroy(() => res.json({ ok: true }));
   });
 

@@ -251,18 +251,23 @@ module.exports = function (pool) {
   return router;
 };
 
+// Streak: uses UTC for "today" so behaviour is consistent regardless of server timezone.
+// session_date from Postgres (DATE) is compared as calendar days in UTC. For per-user
+// timezones, the client can pass a timezone (future) or convert for display.
 async function getStreak(pool, userId) {
   const result = await pool.query(
     'SELECT DISTINCT session_date FROM progress_logs WHERE user_id=$1 ORDER BY session_date DESC LIMIT 60',
     [userId]
   );
   if (!result.rows.length) return 0;
+  const now = new Date();
+  let expected = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0));
   let streak = 0;
-  let expected = new Date();
-  expected.setHours(0, 0, 0, 0);
   for (const row of result.rows) {
-    const d = new Date(row.session_date);
-    d.setHours(0, 0, 0, 0);
+    const sessionDate = row.session_date;
+    const d = typeof sessionDate === 'string'
+      ? new Date(sessionDate + 'T00:00:00Z')
+      : new Date(Date.UTC(sessionDate.getUTCFullYear(), sessionDate.getUTCMonth(), sessionDate.getUTCDate(), 0, 0, 0, 0));
     if (Math.round((expected - d) / 86400000) <= 1) {
       streak++;
       expected = d;
